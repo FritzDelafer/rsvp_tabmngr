@@ -4,6 +4,10 @@ window.GAS_URL = "https://script.google.com/macros/s/AKfycbzqwmcSZ1AspOcdxFRMsNK
 window.SHEET_TAB = "GuestList";
 window.GAS_KEY = ""; // must match ADMIN_KEY in Code.gs (empty = no key needed)
 window.ADMIN_PW = "12192026";
+// POC mode: seating + check-ins stay in THIS browser only — nothing is
+// written back to the Google Sheet (no final seat plan yet).
+window.POC_LOCAL_ONLY = true;
+window.DEFAULT_SEATS = 6;
 
 function gasTimeout_(ms) {
   try {
@@ -63,14 +67,14 @@ window.SEED_GUESTS = [
   { code: "HCH2B5V", name: "Hannah Claire Hicks", pax: 2, side: "Both", table: "Table 7", status: "pending", companions: [], contact: "", message: "" }
 ];
 
-// Default floor layout — matches the Table N names in SEED_GUESTS.
+// Default floor layout — 6 seats per table (POC). Matches Table N names in SEED_GUESTS.
 window.SEED_TABLES = [
-  { id: "t1", name: "Table 1", shape: "round", seats: 8, x: 60,  y: 50,  notes: "VIP" },
-  { id: "t2", name: "Table 2", shape: "round", seats: 8, x: 300, y: 50,  notes: "" },
-  { id: "t3", name: "Table 3", shape: "round", seats: 8, x: 540, y: 50,  notes: "" },
-  { id: "t4", name: "Table 4", shape: "rect",  seats: 10, x: 60, y: 280, notes: "" },
-  { id: "t5", name: "Table 5", shape: "rect",  seats: 10, x: 320, y: 280, notes: "" },
-  { id: "t6", name: "Table 6", shape: "long",  seats: 12, x: 580, y: 280, notes: "" },
-  { id: "t7", name: "Table 7", shape: "round", seats: 8, x: 180, y: 500, notes: "" },
-  { id: "t8", name: "Table 8", shape: "round", seats: 8, x: 460, y: 500, notes: "" }
+  { id: "t1", name: "Table 1", shape: "round", seats: 6, x: 60,  y: 50,  notes: "VIP" },
+  { id: "t2", name: "Table 2", shape: "round", seats: 6, x: 300, y: 50,  notes: "" },
+  { id: "t3", name: "Table 3", shape: "round", seats: 6, x: 540, y: 50,  notes: "" },
+  { id: "t4", name: "Table 4", shape: "rect",  seats: 6, x: 60, y: 280, notes: "" },
+  { id: "t5", name: "Table 5", shape: "rect",  seats: 6, x: 320, y: 280, notes: "" },
+  { id: "t6", name: "Table 6", shape: "long",  seats: 6, x: 580, y: 280, notes: "" },
+  { id: "t7", name: "Table 7", shape: "round", seats: 6, x: 180, y: 500, notes: "" },
+  { id: "t8", name: "Table 8", shape: "round", seats: 6, x: 460, y: 500, notes: "" }
 ];
