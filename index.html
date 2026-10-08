@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Table Manager — Jess &amp; Ara 12.19.2026</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="styles.css" />
+<link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="nav"><div class="nav-inner">
+  <div class="brand"><b>Jess &amp; Ara</b> • Table Manager <span class="muted" style="font-size:13px">rsvp_wed_tab</span></div>
+  <nav><a href="#" id="navRefresh">REFRESH</a><a href="#" id="navExport">EXPORT</a></nav>
+</div></header>
+
+<div class="wrap">
+  <!-- login -->
+  <section id="loginCard" class="card" style="max-width:520px;margin:34px auto">
+    <div class="kicker">Jess &amp; Ara • Tables</div>
+    <div class="script" style="font-size:48px;color:var(--wine)">Floor plan</div>
+    <p class="muted">Same guest list as the RSVP site. Assigning a table writes back to the Sheet <b>TABLE</b> column.</p>
+    <label>Password</label>
+    <div class="row"><input id="pw" type="password" placeholder="Enter password" style="max-width:280px"/><button class="btn" id="loginBtn">Unlock</button></div>
+    <div id="loginMsg"></div>
+  </section>
+
+  <!-- dashboard -->
+  <div id="dash" style="display:none">
+    <div class="stats" id="stats"></div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="toolbar">
+        <input id="q" placeholder="Search guest / code / table..." />
+        <select id="fSide"><option value="">All sides</option><option>Bride</option><option>Groom</option><option>Both</option></select>
+        <select id="fStatus"><option value="">Attending + pending</option><option value="attending">Attending only</option><option value="pending">Pending only</option><option value="declined">Declined</option><option value="all">Everyone</option></select>
+        <button class="btn small" id="addTableBtn">+ Add Table</button>
+        <button class="btn small ghost" id="refreshBtn">Refresh Sheet</button>
+        <button class="btn small ghost" id="exportBtn">Export layout</button>
+        <button class="btn small ghost" id="importBtn">Import</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+      </div>
+      <div id="syncMsg"></div>
+    </div>
+
+    <div class="layout">
+      <div class="card floor-wrap">
+        <div class="kicker">Floor plan — drag tables to arrange • click to select</div>
+        <div id="floor" style="margin-top:10px"><div class="floor-hint">Tip: drag a table • click for guests • double-click to rename</div></div>
+        <p class="muted" style="font-size:13px">Layout auto-saves in this browser. Guest → table assignments save to the Google Sheet.</p>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <div class="kicker" id="detailTitle">Select a table</div>
+          <div id="detailBody"><p class="muted">Click a table on the floor plan to see its guests.</p></div>
+        </div>
+        <div class="card">
+          <div class="kicker">Unseated (<span id="unseatedCount">0</span>)</div>
+          <div id="unseated" class="scrollbox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- table modal -->
+  <div id="modal">
+    <div class="card" style="width:min(440px,94vw)">
+      <div class="kicker" id="mTitle">Add table</div>
+      <label>Table name (must match guest TABLE text to seat them)</label>
+      <input id="mName" placeholder="Table 9" />
+      <div class="row">
+        <div style="flex:1"><label>Seats</label><input id="mSeats" type="number" min="1" max="40" value="8" /></div>
+        <div style="flex:1"><label>Shape</label><select id="mShape"><option value="round">Round</option><option value="rect">Rectangle</option><option value="long">Banquet</option></select></div>
+      </div>
+      <label>Notes (e.g. VIP, near stage)</label>
+      <input id="mNotes" placeholder="Optional" />
+      <div id="mMsg"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="mSave">Save Table</button>
+        <button class="btn ghost" id="mCancel">Cancel</button>
+        <button class="btn danger small" id="mDelete" style="display:none;margin-left:auto">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>JESS PAUL &amp; ARA MAQHELAH • 12.19.2026 • Table manager reads/writes the same GuestList sheet as the RSVP site</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
