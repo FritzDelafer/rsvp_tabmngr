@@ -1,13 +1,16 @@
-// rsvp_wed_tab (POC) — per-head seats, 6 per table, LOCAL ONLY.
-// Guest list loads READ-ONLY from the Sheet (or seed offline).
-// Seating plan + check-ins live in localStorage only — never pushed to Sheet.
+// rsvp_wed_tab — per-head seats, 6 per table.
+// Guest list + CHECKIN load from the Sheet (GuestList column CHECKIN).
+// Seating plan (TABLE assignments) stays local-only POC in localStorage —
+// never pushed to Sheet. CHECKIN syncs to the Sheet via action=checkin so
+// door devices share green check-ins. Local pending overlay covers offline.
 (function () {
 "use strict";
 
 var LS_TABLES = "rsvp-tab-tables-v1";
-var LS_GUESTS = "rsvp-tab-guests-v1";   // last Sheet snapshot (cache)
+var LS_GUESTS = "rsvp-tab-guests-v1";   // last Sheet snapshot (cache, incl. checkin)
 var LS_SEAT = "rsvp-tab-seating-v1";    // POC seating overlay {CODE: tableName}
-var LS_CHECKIN = "rsvp-tab-checkin-v1"; // POC check-ins {CODE: [bool per head]}
+var LS_CHECKIN = "rsvp-tab-checkin-v1"; // pending check-in overlay {CODE: [bool]} (unsynced writes)
+var LS_BG = "rsvp-tab-bg-v1"; // floor background on/off
 var SS_AUTH = "rsvp-tab-admin";
 
 var tables = [];
@@ -34,6 +37,7 @@ function normalizeGuest(g) {
     ? g.companions
     : String(g.companions || "").split(/[;,\n]+/).map(function (c) { return c.trim(); }).filter(Boolean);
   var st = String(g.status || "pending").toLowerCase();
+  var chk = window.parseCheckin ? window.parseCheckin(g.checkin) : (Array.isArray(g.checkin) ? g.checkin.map(Boolean) : []);
   return {
     code: String(g.code || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""),
     name: String(g.name || "").trim(),
@@ -43,7 +47,8 @@ function normalizeGuest(g) {
     status: (st === "attending" || st === "confirmed") ? "attending" : st === "declined" ? "declined" : "pending",
     companions: comps.map(function (c) { return String(c).trim(); }).filter(Boolean),
     contact: String(g.contact || "").trim(),
-    message: String(g.message || "").trim()
+    message: String(g.message || "").trim(),
+    checkin: chk
   };
 }
 
@@ -70,34 +75,82 @@ function saveMap(key, obj) {
   try { localStorage.setItem(key, JSON.stringify(obj || {})); } catch (e) {}
 }
 function checkinArr(code, len) {
-  var map = loadMap(LS_CHECKIN);
-  var arr = map[normCode(code)] || [];
+  var g = guests.find(function (x) { return normCode(x.code) === normCode(code); });
+  // Pending overlay (unsynced writes, offline) wins; otherwise Sheet truth.
+  var pending = loadMap(LS_CHECKIN)[normCode(code)];
+  var base = Array.isArray(pending) ? pending : (g && Array.isArray(g.checkin) ? g.checkin : []);
+  var arr = base.slice(0, len);
   while (arr.length < len) arr.push(false);
-  return arr.slice(0, len);
+  return arr.map(Boolean);
 }
 function isChecked(code, idx) {
-  var map = loadMap(LS_CHECKIN);
-  var arr = map[normCode(code)] || [];
-  return !!arr[idx];
+  var pending = loadMap(LS_CHECKIN)[normCode(code)];
+  if (pending && idx < pending.length) return !!pending[idx];
+  var g = guests.find(function (x) { return normCode(x.code) === normCode(code); });
+  if (g && Array.isArray(g.checkin) && idx < g.checkin.length) return !!g.checkin[idx];
+  return false;
+}
+function serializeArr(arr) {
+  if (window.serializeCheckin) return window.serializeCheckin(arr);
+  var end = arr.length;
+  while (end > 0 && !arr[end - 1]) end--;
+  return arr.slice(0, end).map(function (x) { return x ? "1" : "0"; }).join(",");
+}
+function pushCheckinToSheet(code, arr) {
+  if (!useGas()) return Promise.resolve({ ok: true, local: true });
+  return window.gasPost({ action: "checkin", code: code, checkin: serializeArr(arr) });
 }
 function toggleCheckin(code, idx) {
-  var g = guests.find(function (x) { return normCode(x.code) === normCode(code); });
-  if (!g) return;
-  var len = plannedHeads(g).length;
-  var map = loadMap(LS_CHECKIN);
-  var key = normCode(code);
-  var arr = map[key] || [];
-  while (arr.length < len) arr.push(false);
-  arr[idx] = !arr[idx];
-  map[key] = arr.slice(0, len);
-  saveMap(LS_CHECKIN, map);
+  var gi = guests.findIndex(function (x) { return normCode(x.code) === normCode(code); });
+  if (gi < 0) return;
+  var len = plannedHeads(guests[gi]).length;
+  var cur = checkinArr(code, len).slice();
+  while (cur.length < len) cur.push(false);
+  cur[idx] = !cur[idx];
+  // Optimistic: update Sheet truth in memory + pending overlay, paint instantly.
+  guests[gi].checkin = cur.slice();
+  var pending = loadMap(LS_CHECKIN);
+  pending[normCode(code)] = cur.slice();
+  saveMap(LS_CHECKIN, pending);
+  try { localStorage.setItem(LS_GUESTS, JSON.stringify(guests)); } catch (e) {}
   render();
+  pushCheckinToSheet(code, cur).then(function (res) {
+    if (res && res.ok) {
+      var p = loadMap(LS_CHECKIN);
+      delete p[normCode(code)];
+      saveMap(LS_CHECKIN, p);
+      setSyncMsg("Checked-in " + esc(guests[gi].name) + " saved to Sheet CHECKIN.", true);
+    } else {
+      setSyncMsg("Check-in saved locally — Sheet write failed (" + esc(String((res && res.error) || "unknown")) + "). Will retry on next toggle.", false, true);
+    }
+  }).catch(function (err) {
+    setSyncMsg("Check-in saved locally — Sheet unreachable (" + esc(String((err && err.message) || err)) + "). Will retry on next toggle.", false, true);
+  });
+}
+function applyCheckinOverlay(list) {
+  var pending = loadMap(LS_CHECKIN);
+  Object.keys(pending).forEach(function (code) {
+    var g = list.find(function (x) { return normCode(x.code) === normCode(code); });
+    if (g && Array.isArray(pending[code])) g.checkin = pending[code].map(Boolean);
+  });
+  return list;
 }
 function resetCheckins() {
-  if (!confirm("Clear all check-ins on this device?")) return;
+  if (!confirm("Clear all check-ins (Sheet + this device)?")) return;
+  var codes = guests.filter(function (g) {
+    return checkinArr(g.code, plannedHeads(g).length).some(Boolean);
+  }).map(function (g) { return g.code; });
+  guests.forEach(function (g) { g.checkin = []; });
   try { localStorage.removeItem(LS_CHECKIN); } catch (e) {}
+  try { localStorage.setItem(LS_GUESTS, JSON.stringify(guests)); } catch (e) {}
   render();
-  setSyncMsg("Check-ins cleared (this device only).", true);
+  if (!codes.length) { setSyncMsg("Check-ins already empty.", true); return; }
+  if (!useGas()) { setSyncMsg("Check-ins cleared (this device only).", true); return; }
+  setSyncMsg("Clearing " + codes.length + " check-in(s) in Sheet…", true);
+  Promise.allSettled(codes.map(function (c) { return pushCheckinToSheet(c, []); })).then(function (rs) {
+    var failed = rs.filter(function (r) { return r.status !== "fulfilled" || !r.value || !r.value.ok; }).length;
+    setSyncMsg(failed ? "Cleared locally; " + failed + " Sheet write(s) failed — retry Reset." : "All check-ins cleared in Sheet.", !failed, !!failed);
+  });
 }
 
 // ---------- tables ----------
@@ -169,15 +222,15 @@ async function refresh() {
     if (useGas()) {
       var res = await window.gasGet({ action: "list" });
       if (!res || !res.ok) throw new Error((res && res.error) || "list failed");
-      guests = applySeatingOverlay((res.guests || []).map(normalizeGuest));
+      guests = applyCheckinOverlay(applySeatingOverlay((res.guests || []).map(normalizeGuest)));
       try { localStorage.setItem(LS_GUESTS, JSON.stringify(guests)); } catch (e) {}
       guests.forEach(function (g) { if (g.table) ensureTableFor(g.table); });
     } else {
-      guests = applySeatingOverlay(loadLocalGuests());
+      guests = applyCheckinOverlay(applySeatingOverlay(loadLocalGuests()));
     }
   } catch (err) {
     syncError = String((err && err.message) || err);
-    guests = applySeatingOverlay(loadLocalGuests());
+    guests = applyCheckinOverlay(applySeatingOverlay(loadLocalGuests()));
   } finally {
     loading = false;
     render();
@@ -264,10 +317,24 @@ function sideClass(side) {
 }
 
 function render() {
+  applyFloorBg();
   renderStats();
   renderFloor();
   renderDetail();
   renderUnseated();
+}
+
+function bgOn() {
+  try { return localStorage.getItem(LS_BG) !== "off"; } catch (e) { return true; }
+}
+function applyFloorBg() {
+  var floor = document.getElementById("floor");
+  if (!floor) return;
+  var on = bgOn();
+  floor.classList.toggle("has-bg", on);
+  floor.classList.toggle("no-bg", !on);
+  var b = document.getElementById("bgToggleBtn");
+  if (b) b.textContent = "Background: " + (on ? "On" : "Off");
 }
 
 function renderStats() {
@@ -276,14 +343,21 @@ function renderStats() {
   var checked = totalChecked();
   var unGroups = unseatedGroups();
   var unHeads = unGroups.reduce(function (a, g) { return a + plannedHeads(g).length; }, 0);
-  var badge = '<span class="pill wait">POC • LOCAL</span>';
+  var pendingN = Object.keys(loadMap(LS_CHECKIN)).length;
+  var badge = useGas()
+    ? '<span class="pill ok">CHECKIN • SHEET</span>'
+    : '<span class="pill wait">CHECKIN • LOCAL</span>';
+  var sub = loading ? "Loading…"
+    : syncError ? "Sheet error: " + esc(syncError)
+    : useGas() ? "Tables local • check-ins in CHECKIN" + (pendingN ? " • " + pendingN + " unsynced" : "")
+    : "Offline — check-ins local only";
   document.getElementById("stats").innerHTML =
     '<div class="stat"><b>' + tables.length + '</b><span>Tables × ' + defSeats() + '</span></div>' +
     '<div class="stat"><b>' + capacity + '</b><span>Total seats</span></div>' +
     '<div class="stat"><b>' + planned + '</b><span>Planned heads</span></div>' +
     '<div class="stat"><b style="color:var(--ok)">' + checked + ' / ' + planned + '</b><span>Checked-in (green)</span></div>' +
     '<div class="stat"><b>' + unGroups.length + ' / ' + unHeads + '</b><span>Unseated groups / heads</span></div>' +
-    '<div class="stat">' + badge + '<span>' + (loading ? "Loading…" : syncError ? "Sheet error: " + esc(syncError) : "Sheet read-only • plan local") + '</span></div>';
+    '<div class="stat">' + badge + '<span>' + sub + '</span></div>';
 }
 
 function renderFloor() {
@@ -394,7 +468,7 @@ function renderDetail() {
   var checked = heads.filter(function (h) { return h.checked; }).length;
   var over = heads.length > t.seats;
   title.textContent = t.name + " — " + heads.length + "/" + t.seats + " heads" + (checked ? " • " + checked + " ✓" : "");
-  var html = '<p class="muted" style="font-size:13px">' + esc(t.shape) + " • 6-seat POC" + (t.notes ? " • " + esc(t.notes) : "") +
+  var html = '<p class="muted" style="font-size:13px">' + esc(t.shape) + " • " + t.seats + "-seat" + (t.notes ? " • " + esc(t.notes) : "") +
     ' • <a href="#" id="editTableLink">Edit</a></p>' +
     '<div class="capbar' + (over ? " over" : "") + '"><i style="width:' + (t.seats ? Math.min(100, Math.round(heads.length / t.seats * 100)) : 0) + '%"></i></div>' +
     (over ? '<div class="error">Over capacity by ' + (heads.length - t.seats) + ' head(s).</div>' : '');
@@ -521,7 +595,7 @@ function nextTableName() {
 // ---------- wiring ----------
 function init() {
   loadTables();
-  guests = applySeatingOverlay(loadLocalGuests());
+  guests = applyCheckinOverlay(applySeatingOverlay(loadLocalGuests()));
 
   var authed = false;
   try { authed = sessionStorage.getItem(SS_AUTH) === "1"; } catch (e) {}
@@ -605,9 +679,13 @@ function init() {
   document.getElementById("fSide").onchange = renderUnseated;
   document.getElementById("fStatus").onchange = renderUnseated;
   document.getElementById("refreshBtn").onclick = function () {
-    if (confirm("Reload guest list from Sheet? Your POC seating/check-ins on this device are kept.")) refresh();
+    if (confirm("Reload guest list from Sheet? Your local seating plan is kept; unsynced check-ins are kept too.")) refresh();
   };
   document.getElementById("resetCheckinBtn").onclick = resetCheckins;
+  document.getElementById("bgToggleBtn").onclick = function () {
+    try { localStorage.setItem(LS_BG, bgOn() ? "off" : "on"); } catch (e) {}
+    applyFloorBg();
+  };
   var nr = document.getElementById("navRefresh");
   if (nr) nr.onclick = function (e) { e.preventDefault(); if (sessionAuthed()) refresh(); };
   var ne = document.getElementById("navExport");
@@ -654,7 +732,7 @@ function exportLayout() {
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   var a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "rsvp-tables-poc.json";
+  a.download = "rsvp-tables.json";
   document.body.appendChild(a);
   a.click();
   setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);

@@ -55,6 +55,15 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--blush);border-co
   repeating-linear-gradient(0deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px),
   repeating-linear-gradient(90deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px);
   overflow:hidden;touch-action:none}
+#floor.has-bg{background:
+  linear-gradient(rgba(255,255,255,.82),rgba(255,255,255,.82)) padding-box,
+  url("assets/testfloor.png") center / cover no-repeat,
+  repeating-linear-gradient(0deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px),
+  repeating-linear-gradient(90deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px)}
+#floor.no-bg{background:
+  linear-gradient(#fff,#fff) padding-box,
+  repeating-linear-gradient(0deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px),
+  repeating-linear-gradient(90deg,transparent 0 39px,rgba(185,138,62,.08) 39px 40px)}
 .floor-hint{position:absolute;top:10px;left:12px;font-size:12px;color:var(--muted);pointer-events:none;background:rgba(255,255,255,.8);padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
 .table-node{position:absolute;user-select:none;cursor:grab;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   border:2px solid var(--wine);background:#fff;box-shadow:var(--shadow);padding:8px;text-align:center}

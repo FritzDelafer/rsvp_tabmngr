@@ -4,10 +4,38 @@ window.GAS_URL = "https://script.google.com/macros/s/AKfycbzqwmcSZ1AspOcdxFRMsNK
 window.SHEET_TAB = "GuestList";
 window.GAS_KEY = ""; // must match ADMIN_KEY in Code.gs (empty = no key needed)
 window.ADMIN_PW = "12192026";
-// POC mode: seating + check-ins stay in THIS browser only — nothing is
-// written back to the Google Sheet (no final seat plan yet).
+// POC mode: seating plan stays in THIS browser only — nothing is
+// written back to the Google Sheet TABLE column (no final seat plan yet).
+// CHECKIN *does* sync to the Sheet (GuestList column CHECKIN) so door staff
+// share check-ins across devices. TABLE stays local; CHECKIN is shared.
 window.POC_LOCAL_ONLY = true;
 window.DEFAULT_SEATS = 6;
+
+// CHECKIN helpers (mirror Code.gs): canonical "1,0,1" per-head flags.
+window.parseCheckin = function (v) {
+  if (Array.isArray(v)) return v.map(function (x) { return !!x; });
+  var s = String(v == null ? "" : v).trim();
+  if (!s) return [];
+  if (/^\d+$/.test(s)) {
+    if (s.length === 1) {
+      var out = [], n = parseInt(s, 10) || 0;
+      for (var i = 0; i < n; i++) out.push(true);
+      return out;
+    }
+    if (/^[01]+$/.test(s)) return s.split("").map(function (c) { return c === "1"; });
+  }
+  return s.split(/[;,\s\n]+/).map(function (c) {
+    var nrm = String(c).trim().toLowerCase();
+    return nrm === "1" || nrm === "x" || nrm === "✓" || nrm === "yes" || nrm === "true" || nrm === "checked" || nrm === "in";
+  });
+};
+window.serializeCheckin = function (arr) {
+  if (!arr || !arr.length) return "";
+  var end = arr.length;
+  while (end > 0 && !arr[end - 1]) end--;
+  if (end === 0) return "";
+  return arr.slice(0, end).map(function (x) { return x ? "1" : "0"; }).join(",");
+};
 
 function gasTimeout_(ms) {
   try {

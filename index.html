@@ -10,7 +10,7 @@
 </head>
 <body>
 <header class="nav"><div class="nav-inner">
-  <div class="brand"><b>Jess &amp; Ara</b> • Table Manager <span class="pill wait" style="font-size:11px">POC • LOCAL ONLY</span></div>
+  <div class="brand"><b>Jess &amp; Ara</b> • Table Manager <span class="pill ok" style="font-size:11px">TABLES LOCAL • CHECKIN SHEET</span></div>
   <nav><a href="#" id="navRefresh">REFRESH</a><a href="#" id="navExport">EXPORT</a></nav>
 </div></header>
 
@@ -19,7 +19,7 @@
   <section id="loginCard" class="card" style="max-width:520px;margin:34px auto">
     <div class="kicker">Jess &amp; Ara • Tables</div>
     <div class="script" style="font-size:48px;color:var(--wine)">Floor plan</div>
-    <p class="muted">POC: 1 seat per head, 6 seats per table. Seating + check-ins stay in this browser only — nothing is written to the Sheet yet.</p>
+    <p class="muted">1 seat per head, 6 seats per table. Seating plan stays in this browser — check-ins sync to the Sheet CHECKIN column so door devices stay in sync.</p>
     <label>Password</label>
     <div class="row"><input id="pw" type="password" placeholder="Enter password" style="max-width:280px"/><button class="btn" id="loginBtn">Unlock</button></div>
     <div id="loginMsg"></div>
@@ -37,6 +37,7 @@
         <button class="btn small" id="addTableBtn">+ Add Table</button>
         <button class="btn small ghost" id="refreshBtn">Reload Sheet</button>
         <button class="btn small ghost" id="resetCheckinBtn">Reset check-ins</button>
+        <button class="btn small ghost" id="bgToggleBtn">Background: On</button>
         <button class="btn small ghost" id="exportBtn">Export layout</button>
         <button class="btn small ghost" id="importBtn">Import</button>
         <input type="file" id="importFile" accept="application/json" style="display:none" />
@@ -60,7 +61,7 @@
           <span class="seat demo empty" title="Empty">+</span> Empty seat
         </div>
         <div id="floor" style="margin-top:10px"><div class="floor-hint">Tip: tap seat = check in • click table = guests • double-click = edit</div></div>
-        <p class="muted" style="font-size:13px">POC local mode: layout, seating and check-ins auto-save in this browser. Sheet is read-only.</p>
+        <p class="muted" style="font-size:13px">Seating + layout auto-save in this browser (Sheet untouched). Green check-ins write to Sheet CHECKIN and sync across devices.</p>
       </div>
 
       <div class="card">
@@ -92,7 +93,7 @@
   </div>
 </div>
 
-<footer>JESS PAUL &amp; ARA MAQHELAH • 12.19.2026 • POC table manager — local only, 6 seats per table</footer>
+<footer>JESS PAUL &amp; ARA MAQHELAH • 12.19.2026 • tables local, check-ins in Sheet CHECKIN — 6 seats per table</footer>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
