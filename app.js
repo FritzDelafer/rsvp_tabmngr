@@ -291,6 +291,22 @@ function assignTable(code, newTableName) {
   render();
   setSyncMsg("POC: " + esc(guests[i].name) + " → " + esc(newTableName || "(unseated)") + " (local only, Sheet untouched).", true);
 }
+// Local-only bulk unseat: clears this device's seating overlay so the
+// Unseated panel fills up for (re-)arranging. Sheet TABLE values are kept.
+function unseatAll() {
+  var targets = guests.filter(function (g) { return !isDeclined(g) && g.table; });
+  if (!targets.length) return;
+  if (!confirm("Unseat all " + targets.length + " attending/pending group(s) on this device? (Local only — Sheet values are kept.)")) return;
+  var seatMap = loadMap(LS_SEAT);
+  targets.forEach(function (g) {
+    g.table = "";
+    seatMap[normCode(g.code)] = "";
+  });
+  saveMap(LS_SEAT, seatMap);
+  try { localStorage.setItem(LS_GUESTS, JSON.stringify(guests)); } catch (e) {}
+  render();
+  setSyncMsg("Unseated " + targets.length + " group(s) (local only). Re-assign them from the Unseated panel.", true);
+}
 function setSyncMsg(html, ok, isErr) {
   var el = document.getElementById("syncMsg");
   if (!el) return;
@@ -532,7 +548,13 @@ function renderUnseated() {
     return;
   }
   if (!list.length) {
-    box.innerHTML = '<p class="muted">All clear — every head is seated.</p>';
+    var seatedN = guests.filter(function (g) { return !isDeclined(g); }).length;
+    var declN = guests.filter(isDeclined).length;
+    box.innerHTML = '<p class="muted">All clear — every head is seated (' + seatedN + ' group(s) at tables' +
+      (declN ? ' • ' + declN + ' declined hidden' : '') + ').</p>' +
+      (seatedN ? '<div class="actions"><button class="btn small ghost" id="unseatAllBtn">Unseat everyone</button></div>' : '');
+    var ua = document.getElementById("unseatAllBtn");
+    if (ua) ua.onclick = unseatAll;
     return;
   }
   var sel = selectedTableId ? tableById(selectedTableId) : null;
