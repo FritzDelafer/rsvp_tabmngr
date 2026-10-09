@@ -527,6 +527,10 @@ function renderUnseated() {
   });
   var heads = list.reduce(function (a, g) { return a + plannedHeads(g).length; }, 0);
   document.getElementById("unseatedCount").textContent = heads;
+  if (!guests.length) {
+    box.innerHTML = '<p class="muted">No guests loaded — hit Reload Sheet. If it stays empty, check the Sheet connection and that GuestList rows have CODE values.</p>';
+    return;
+  }
   if (!list.length) {
     box.innerHTML = '<p class="muted">All clear — every head is seated.</p>';
     return;
@@ -688,54 +692,9 @@ function init() {
   };
   var nr = document.getElementById("navRefresh");
   if (nr) nr.onclick = function (e) { e.preventDefault(); if (sessionAuthed()) refresh(); };
-  var ne = document.getElementById("navExport");
-  if (ne) ne.onclick = function (e) { e.preventDefault(); exportLayout(); };
-
-  document.getElementById("exportBtn").onclick = exportLayout;
-  document.getElementById("importBtn").onclick = function () { document.getElementById("importFile").click(); };
-  document.getElementById("importFile").onchange = function (e) {
-    var f = e.target.files && e.target.files[0];
-    if (!f) return;
-    var r = new FileReader();
-    r.onload = function () {
-      try {
-        var parsed = JSON.parse(r.result);
-        // support both legacy [tables] and POC {tables, seating, checkins}
-        var arr = Array.isArray(parsed) ? parsed : parsed.tables;
-        if (!Array.isArray(arr)) throw new Error("not a layout file");
-        tables = arr.map(sanitizeTable).filter(Boolean);
-        if (!tables.length) throw new Error("no valid tables");
-        if (parsed && !Array.isArray(parsed) && parsed.seating) saveMap(LS_SEAT, parsed.seating);
-        if (parsed && !Array.isArray(parsed) && parsed.checkins) saveMap(LS_CHECKIN, parsed.checkins);
-        guests = applySeatingOverlay(guests);
-        saveTables();
-        render();
-        setSyncMsg("Imported " + tables.length + " table(s).", true);
-      } catch (err) {
-        setSyncMsg("Import failed: " + esc(String((err && err.message) || err)), false, true);
-      }
-      e.target.value = "";
-    };
-    r.readAsText(f);
-  };
 }
 function sessionAuthed() {
   try { return sessionStorage.getItem(SS_AUTH) === "1"; } catch (e) { return false; }
-}
-function exportLayout() {
-  var payload = {
-    exportedAt: new Date().toISOString(),
-    tables: tables,
-    seating: loadMap(LS_SEAT),
-    checkins: loadMap(LS_CHECKIN)
-  };
-  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "rsvp-tables.json";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 async function showDash() {
   document.getElementById("loginCard").style.display = "none";

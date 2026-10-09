@@ -7,8 +7,8 @@ Pairs with the RSVP projects from last week (`wedding-rsvp` / `wedding-rsvp-v2`)
   (`CODE | NAME | PAX | SIDE | TABLE | STATUS | COMPANIONS | CONTACT | MESSAGE`)
   via the same Apps Script web app (`GAS_URL` in `config.js`).
 - **Source of truth for table layout** (positions, shapes, capacities):
-  browser `localStorage` + JSON export/import. Guest → table assignments
-  are written back to the Sheet `TABLE` column so `admin.html` stays in sync.
+  browser `localStorage` (auto-save). Guest → table assignments stay local;
+  only check-ins sync to the Sheet `CHECKIN` column.
 
 ## Pages
 
@@ -25,7 +25,7 @@ Pairs with the RSVP projects from last week (`wedding-rsvp` / `wedding-rsvp-v2`)
 - Table detail: guest list per table, remove back to unseated, move between tables
 - Live Sheet sync: `list` on load, `upsert` per TABLE change (same backend as v2)
 - Offline fallback: seed guests + localStorage when Sheet unreachable
-- Layout persistence: auto-save positions to localStorage, export/import JSON
+- Layout persistence: auto-save positions to localStorage
 
 ## Run locally
 
@@ -49,6 +49,6 @@ Open http://localhost:3000 — password `12192026`.
 - No `Code.gs` change needed: guest TABLE assignment uses the existing
   `upsert` action (`{ action: "upsert", guest: { ...guest, table } }`).
 - If you want table layouts in the Sheet too, create a tab `Tables` with
-  `ID | NAME | SHAPE | SEATS | X | Y | NOTES` and use Export JSON → paste,
+  `ID | NAME | SHAPE | SEATS | X | Y | NOTES` and copy values over,
   or extend `apps-script` later. Layout-in-Sheet is intentionally out of
   scope for v1 so the RSVP backend stays untouched.
